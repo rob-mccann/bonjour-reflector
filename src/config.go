@@ -1,16 +1,15 @@
 package main
 
 import (
-	"io/ioutil"
+	"fmt"
 
-	"github.com/BurntSushi/toml"
+	"github.com/traefik/paerser/flag"
 )
 
-type macAddress string
-
 type brconfig struct {
-	NetInterface string                       `toml:"net_interface"`
-	Devices      map[macAddress]bonjourDevice `toml:"devices"`
+	Debug        bool
+	NetInterface string
+	Devices      map[string]bonjourDevice
 }
 
 type bonjourDevice struct {
@@ -18,16 +17,19 @@ type bonjourDevice struct {
 	SharedPools []uint16 `toml:"shared_pools"`
 }
 
-func readConfig(path string) (cfg brconfig, err error) {
-	content, err := ioutil.ReadFile(path)
-	if err != nil {
-		return brconfig{}, err
+func readConfig(args []string) (cfg brconfig, err error) {
+	config := brconfig{}
+
+	config.Debug = false
+
+	if err := flag.Decode(args, &config); err != nil {
+		return brconfig{}, fmt.Errorf("error reading config file, %v", err)
 	}
-	_, err = toml.Decode(string(content), &cfg)
-	return cfg, err
+
+	return config, err
 }
 
-func mapByPool(devices map[macAddress]bonjourDevice) map[uint16]([]uint16) {
+func mapByPool(devices map[string]bonjourDevice) map[uint16]([]uint16) {
 	seen := make(map[uint16]map[uint16]bool)
 	poolsMap := make(map[uint16]([]uint16))
 	for _, device := range devices {

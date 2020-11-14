@@ -1,12 +1,12 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"log"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
+	"os"
 	"time"
 
 	"github.com/google/gopacket"
@@ -15,19 +15,17 @@ import (
 
 func main() {
 	// Read config file and generate mDNS forwarding maps
-	configPath := flag.String("config", "", "Config file in TOML format")
-	debug := flag.Bool("debug", false, "Enable pprof server on /debug/pprof/")
-	flag.Parse()
+	cfg, err := readConfig(os.Args[1:])
 
-	// Start debug server
-	if *debug {
-		go debugServer(6060)
-	}
-
-	cfg, err := readConfig(*configPath)
 	if err != nil {
 		log.Fatalf("Could not read configuration: %v", err)
 	}
+
+	// Start debug server
+	if cfg.Debug {
+		go debugServer(6060)
+	}
+
 	poolsMap := mapByPool(cfg.Devices)
 
 	// Get a handle on the network interface
@@ -69,7 +67,7 @@ func main() {
 				sendBonjourPacket(rawTraffic, &bonjourPacket, tag, brMACAddress)
 			}
 		} else {
-			device, ok := cfg.Devices[macAddress(bonjourPacket.srcMAC.String())]
+			device, ok := cfg.Devices[bonjourPacket.srcMAC.String()]
 			if !ok {
 				continue
 			}
@@ -83,6 +81,6 @@ func main() {
 func debugServer(port int) {
 	err := http.ListenAndServe(fmt.Sprintf("localhost:%d", port), nil)
 	if err != nil {
-		log.Fatalf("The application was started with -debug flag but could not listen on port %v: \n %s", port, err)
+		log.Fatalf("The application was started with --Debug flag but could not listen on port %v: \n %s", port, err)
 	}
 }
