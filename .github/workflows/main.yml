@@ -63,6 +63,13 @@ jobs:
         with:
           version: latest
       -
+        name: Docker meta
+        id: docker_meta
+        uses: crazy-max/ghaction-docker-meta@v1
+        with:
+          images: robmccann/bonjour-reflector # list of Docker images to use as base name for tags
+          tag-sha: true # add git short SHA as Docker tag
+      -
         name: Set up QEMU
         uses: docker/setup-qemu-action@master
         with:
@@ -86,7 +93,7 @@ jobs:
         name: Build and push
         uses: docker/build-push-action@v2
         with:
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: |
-            robmccann/bonjour-reflector:latest
+          platforms: linux/amd64,linux/arm64,linux/386
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          labels: ${{ steps.docker_meta.outputs.labels }}
