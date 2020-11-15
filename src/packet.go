@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"log"
 	"net"
 
 	"github.com/google/gopacket"
@@ -25,6 +27,7 @@ func parsePacketsLazily(source *gopacket.PacketSource) chan bonjourPacket {
 	packetChan := make(chan bonjourPacket, 100)
 
 	go func() {
+		log.Println("Listening for packets")
 		for packet := range source.Packets() {
 			tag := parseVLANTag(packet)
 
@@ -109,6 +112,9 @@ func sendBonjourPacket(handle packetWriter, bonjourPacket *bonjourPacket, tag ui
 	} else {
 		*bonjourPacket.dstMAC = net.HardwareAddr{0x01, 0x00, 0x5E, 0x00, 0x00, 0xFB}
 	}
+
+	fmt.Println("New packet:")
+	fmt.Println(bonjourPacket.packet.String())
 
 	buf := gopacket.NewSerializeBuffer()
 	gopacket.SerializePacket(buf, gopacket.SerializeOptions{}, bonjourPacket.packet)

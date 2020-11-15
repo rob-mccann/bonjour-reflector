@@ -14,6 +14,8 @@ import (
 )
 
 func main() {
+	log.Println("Reading config...")
+
 	// Read config file and generate mDNS forwarding maps
 	cfg, err := readConfig(os.Args[1:])
 
@@ -28,6 +30,7 @@ func main() {
 
 	poolsMap := mapByPool(cfg.Devices)
 
+	log.Println("Opening handle...")
 	// Get a handle on the network interface
 	rawTraffic, err := pcap.OpenLive(cfg.NetInterface, 65536, true, time.Second)
 	if err != nil {
@@ -40,6 +43,7 @@ func main() {
 		log.Fatal(err)
 	}
 	brMACAddress := intf.HardwareAddr
+	log.Printf("MAC of this interface %s", brMACAddress)
 
 	// Filter tagged bonjour traffic
 	filterTemplate := "not (ether src %s) and vlan and dst net (224.0.0.251 or ff02::fb) and udp dst port 5353"
@@ -55,15 +59,18 @@ func main() {
 
 	// Process Bonjours packets
 	for bonjourPacket := range bonjourPackets {
-		fmt.Println(bonjourPacket.packet.String())
-
 		// Forward the mDNS query or response to appropriate VLANs
 		if bonjourPacket.isDNSQuery {
 			tags, ok := poolsMap[*bonjourPacket.vlanTag]
 			if !ok {
 				continue
 			}
+
+			fmt.Println("Matching DNS query packet:")
+			fmt.Println(bonjourPacket.packet.String())
+
 			for _, tag := range tags {
+				fmt.Printf("Forwarding query to %s\n", fmt.Sprint(tag))
 				sendBonjourPacket(rawTraffic, &bonjourPacket, tag, brMACAddress)
 			}
 		} else {
@@ -71,7 +78,12 @@ func main() {
 			if !ok {
 				continue
 			}
+
+			fmt.Println("Matching broadcast packet:")
+			fmt.Println(bonjourPacket.packet.String())
+
 			for _, tag := range device.SharedPools {
+				fmt.Printf("Forwarding to %s\n", fmt.Sprint(tag))
 				sendBonjourPacket(rawTraffic, &bonjourPacket, tag, brMACAddress)
 			}
 		}
